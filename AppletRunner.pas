@@ -1,0 +1,524 @@
+﻿unit AppletRunner;
+
+{******************************************************************************
+  Plan9Basic Interpreter Engine
+  AppletRunner — Minimal FMX host application form
+
+  MIT License
+  Copyright (c) 2026 André Murta
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+  ---------------------------------------------------------------------------
+  Overview
+  ---------------------------------------------------------------------------
+  TfrmAppletRunner is a self-contained FMX form built entirely in code
+  (no .fmx file required).  It provides:
+
+    * A script editor pane where you can type or paste Plan9Basic source.
+    * Load / Save buttons to read and write .bas files.
+    * Run / Stop buttons to compile and execute the current script.
+    * An output pane that displays every PRINT result from the script.
+    * A status label showing compile / runtime feedback.
+
+  The form initialises TBasicEngine and registers the four standard
+  libraries included with this project:
+    - ArrayLib (dynamic arrays)
+    - StdLib (general utilities)
+    - StrLib (string functions)
+    - SysLib (file system / environment)
+
+  ---------------------------------------------------------------------------
+  Cross-platform compatibility
+  ---------------------------------------------------------------------------
+  This unit compiles and runs on every platform supported by FireMonkey:
+  Windows, macOS, Linux, iOS, and Android.
+
+  On desktop platforms (Windows, macOS, Linux), Load and Save use the
+  native TOpenDialog / TSaveDialog file pickers.
+
+  On mobile platforms (iOS and Android), TOpenDialog / TSaveDialog are not
+  available.  Instead, Load and Save use TDialogService.InputQuery to ask
+  for a filename, and files are read from / written to the application's
+  Documents folder (TPath.GetDocumentsPath).  On Android, deploy your .bas
+  scripts to the device's Documents folder via the IDE or adb before loading.
+
+  The P9B_DESKTOP conditional is set automatically based on the target
+  platform — no manual configuration is needed.
+
+  ---------------------------------------------------------------------------
+  Embedding guide
+  ---------------------------------------------------------------------------
+  To host the Plan9Basic engine in your own FMX application:
+
+    GC := TGarbageCollector.Create();       // must come first
+
+    FEngine := TBasicEngine.Create();
+    RegisterArrayFuncs(FEngine.Functions);
+    RegisterStdFuncs(FEngine.Functions);
+    RegisterStrFuncs(FEngine.Functions);
+    RegisterSysFuncs(FEngine.Functions);
+    RegisterTimerFuncs(FEngine.Functions, FEngine, OutputLines);  // required — pass your output TStrings
+    FEngine.ScriptTimeOut := 30;            // seconds
+
+    if FEngine.Compile(ScriptLines) = 0 then
+      FEngine.ExecuteProgram(OutputLines)
+    else
+      ShowError(FEngine.ErrorLine, FEngine.ErrorMessage);
+
+    FreeAndNil(FEngine);
+    FreeAndNil(GC);                         // must come last
+******************************************************************************}
+
+// ---------------------------------------------------------------------------
+//  Platform detection
+//  P9B_DESKTOP is defined for Windows, macOS, and Linux.
+//  When NOT defined (iOS, Android), the mobile file-access path is compiled.
+// ---------------------------------------------------------------------------
+{$IF DEFINED(MSWINDOWS) OR DEFINED(MACOS) OR DEFINED(LINUX)}
+  {$DEFINE P9B_DESKTOP}
+{$ENDIF}
+
+interface
+
+uses
+  System.SysUtils, System.Types, System.UITypes, System.Classes,
+  System.IOUtils,
+  FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
+  FMX.DialogService,
+  FMX.Controls.Presentation, FMX.StdCtrls, FMX.Memo, FMX.Layouts,
+  FMX.ScrollBox, FMX.Memo.Types, FMX.Edit,
+  basic, exec, UnitGC,
+  ArrayLib, StdLib, StrLib, SysLib, TimerLib;
+
+type
+  TfrmAppletRunner = class(TForm)
+  private
+    FEngine: TBasicEngine;
+
+    // Layout containers
+    FLayoutToolbar : TLayout;
+
+    // Toolbar controls
+    FBtnLoad: TButton;
+    FBtnSave: TButton;
+    FBtnRun: TButton;
+    FBtnStop: TButton;
+    FBtnClear: TButton;
+    FStatusLbl: TLabel;
+
+    // Editor / output panes
+    FScriptMemo: TMemo;
+    FSplitter: TSplitter;
+    FOutputMemo: TMemo;
+
+    // File dialogs — desktop platforms only
+    {$IFDEF P9B_DESKTOP}
+    FOpenDlg: TOpenDialog;
+    FSaveDlg: TSaveDialog;
+    {$ENDIF}
+
+    // Internals
+    FCurrentFile : String;
+
+    procedure BtnLoadClick(Sender: TObject);
+    procedure BtnSaveClick(Sender: TObject);
+    procedure BtnRunClick(Sender: TObject);
+    procedure BtnStopClick(Sender: TObject);
+    procedure BtnClearClick(Sender: TObject);
+
+    // Called by the engine for each PRINT statement
+    procedure OnPrintOutput(Sender: TObject; const Text: String; IsClear: Boolean);
+
+    procedure BuildUI();
+    procedure InitEngine();
+    procedure SetStatus(const Msg: String);
+    procedure SetTitle();
+
+    // Helper: create a toolbar button
+    function MakeButton(const Caption: String; W: Single; Handler: TNotifyEvent): TButton;
+
+    // Mobile helpers
+    {$IFNDEF P9B_DESKTOP}
+    function MobileDocsPath: String;
+    {$ENDIF}
+  public
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy(); override;
+  end;
+
+var
+  frmAppletRunner: TfrmAppletRunner;
+
+implementation
+
+{ TfrmAppletRunner }
+
+constructor TfrmAppletRunner.Create(AOwner: TComponent);
+begin
+  inherited CreateNew(AOwner);  // CreateNew skips .fmx resource loading (form is built entirely in code)
+  BuildUI();
+  // Engine and GC are NOT created here — they are built fresh on each Run
+  // click inside BtnRunClick, mirroring the original Plan9Basic CmdRun pattern.
+end;
+
+destructor TfrmAppletRunner.Destroy();
+begin
+  // Cleanup order mirrors InitBASICEngine in the original project:
+  // 1. Timers first (they hold callbacks into the engine)
+  TimerLib.CleanupAllTimers();
+  // 2. Engine
+  FreeAndNil(FEngine);
+  // 3. GC last — non-visual heap objects may still reference engine data
+  if Assigned(GC) then
+    FreeAndNil(GC);
+
+  inherited Destroy();
+end;
+
+// ---------------------------------------------------------------------------
+//  Engine initialisation  (called at the start of every Run)
+// ---------------------------------------------------------------------------
+//
+//  This mirrors the InitBASICEngine + CmdRun pattern from the original
+//  Plan9Basic project (UnitMain.pas, lines 2006-2157 / 2447-2514):
+//
+//    Cleanup order:  Timers → Engine → GC
+//    Rebuild order:  GC → Engine → Libraries → OnPrintOutput
+//
+//  The engine is NEVER reused between runs; a fresh pair (GC + Engine)
+//  is created each time so that no stale heap objects or registered
+//  callbacks can interfere with the next execution.
+// ---------------------------------------------------------------------------
+
+procedure TfrmAppletRunner.InitEngine();
+begin
+  // --- Tear down previous run (safe to call even on the very first run) ---
+  TimerLib.CleanupAllTimers();        // stop async timer callbacks first
+  FreeAndNil(FEngine);
+  if Assigned(GC) then FreeAndNil(GC);
+
+  // --- Rebuild ---
+  GC      := TGarbageCollector.Create();  // must come before engine
+  FEngine := TBasicEngine.Create();
+
+  // Register the standard libraries supplied with this project.
+  RegisterArrayFuncs(FEngine.Functions); // DIM, REDIM, array access...
+  RegisterStdFuncs(FEngine.Functions); // type conversion, formatting...
+  RegisterStrFuncs(FEngine.Functions); // string manipulation (47+ funcs)
+  RegisterSysFuncs(FEngine.Functions); // file system, environment vars...
+  RegisterTimerFuncs(FEngine.Functions, FEngine, FOutputMemo.Lines); // timer callbacks
+
+  FEngine.ScriptTimeOut := 30; // seconds; 0 = unlimited
+  FEngine.OnPrintOutput := OnPrintOutput;
+end;
+
+// ---------------------------------------------------------------------------
+//  UI construction (no .fmx file — everything is built in code)
+// ---------------------------------------------------------------------------
+
+function TfrmAppletRunner.MakeButton(const Caption: String; W: Single; Handler: TNotifyEvent): TButton;
+begin
+  Result := TButton.Create(Self);
+  Result.Parent := FLayoutToolbar;
+  Result.Text := Caption;
+  Result.Align := TAlignLayout.Left;
+  Result.Width := W;
+  Result.Margins.Right := 4;
+  Result.OnClick := Handler;
+end;
+
+procedure TfrmAppletRunner.BuildUI();
+const
+  TOOLBAR_H = 48;
+  {$IFDEF P9B_DESKTOP}
+  BTN_W = 90;
+  {$ELSE}
+  BTN_W = 64;  // narrow buttons so all 5 fit on a phone in portrait
+  {$ENDIF}
+begin
+  Caption := 'Plan9Basic Applet Runner';
+  Width   := 960;
+  Height  := 700;
+
+  // ---- Toolbar (button row) ----
+  FLayoutToolbar := TLayout.Create(Self);
+  FLayoutToolbar.Parent := Self;
+  FLayoutToolbar.Align  := TAlignLayout.Top;
+  FLayoutToolbar.Height := TOOLBAR_H;
+  FLayoutToolbar.Padding.Rect := TRectF.Create(4, 4, 4, 4);
+
+  // NOTE: FMX TAlignLayout.Left stacks controls in REVERSE creation order
+  // (last created = leftmost).  Create buttons right-to-left so they display
+  // Load | Save | Run | Stop | Clear from left to right on screen.
+  {$IFDEF P9B_DESKTOP}
+  FBtnClear := MakeButton('Clear Output',  110,   BtnClearClick);
+  FBtnStop  := MakeButton('Stop  '#$25A0, BTN_W, BtnStopClick);
+  FBtnRun   := MakeButton('Run  '#$25B6,  BTN_W, BtnRunClick);
+  FBtnSave  := MakeButton('Save',          BTN_W, BtnSaveClick);
+  FBtnLoad  := MakeButton('Load',          BTN_W, BtnLoadClick);
+
+  // Status label fills remaining toolbar width on the right (desktop only)
+  FStatusLbl := TLabel.Create(Self);
+  FStatusLbl.Parent := FLayoutToolbar;
+  FStatusLbl.Align  := TAlignLayout.Client;
+  FStatusLbl.Text   := 'Ready';
+  FStatusLbl.TextSettings.HorzAlign := TTextAlign.Trailing;
+  FStatusLbl.TextSettings.VertAlign := TTextAlign.Center;
+  FStatusLbl.Margins.Right := 6;
+  {$ELSE}
+  // Mobile: icon-only Run/Stop buttons to stay narrow; all 5 × 64 = 320 px
+  FBtnClear := MakeButton('Clear',  BTN_W, BtnClearClick);
+  FBtnStop  := MakeButton(#$25A0,  BTN_W, BtnStopClick);   // ■
+  FBtnRun   := MakeButton(#$25B6,  BTN_W, BtnRunClick);    // ▶
+  FBtnSave  := MakeButton('Save',   BTN_W, BtnSaveClick);
+  FBtnLoad  := MakeButton('Load',   BTN_W, BtnLoadClick);
+  {$ENDIF}
+
+  // ---- Mobile status bar (thin row below toolbar, above editor) ----
+  {$IFNDEF P9B_DESKTOP}
+  FStatusLbl := TLabel.Create(Self);
+  FStatusLbl.Parent  := Self;
+  FStatusLbl.Align   := TAlignLayout.Top;
+  FStatusLbl.Height  := 22;
+  FStatusLbl.Text    := 'Ready';
+  FStatusLbl.Font.Size := 11;
+  FStatusLbl.TextSettings.HorzAlign := TTextAlign.Center;
+  FStatusLbl.TextSettings.VertAlign := TTextAlign.Center;
+  {$ENDIF}
+
+  // ---- Script editor (top half) ----
+  FScriptMemo := TMemo.Create(Self);
+  FScriptMemo.Parent := Self;
+  FScriptMemo.Align := TAlignLayout.Top;
+  {$IFDEF P9B_DESKTOP}
+  FScriptMemo.Height := 300;
+  {$ELSE}
+  FScriptMemo.Height := 220;  // shorter on mobile to leave room for output
+  {$ENDIF}
+  FScriptMemo.Font.Family := 'Courier New';
+  FScriptMemo.Font.Size := 13;
+  FScriptMemo.Lines.Add(''' Plan9Basic sample script');
+  FScriptMemo.Lines.Add('PRINTLN "Hello from Plan9Basic!"');
+  FScriptMemo.Lines.Add('');
+  FScriptMemo.Lines.Add('FOR i = 1 TO 5');
+  FScriptMemo.Lines.Add('  PRINTLN "  Item " + STR$(i)');
+  FScriptMemo.Lines.Add('NEXT i');
+  FScriptMemo.Lines.Add('');
+  FScriptMemo.Lines.Add('PRINTLN "Done."');
+
+  // ---- Splitter between editor and output ----
+  FSplitter := TSplitter.Create(Self);
+  FSplitter.Parent := Self;
+  FSplitter.Align := TAlignLayout.Top;
+  FSplitter.Height := 8;
+  FSplitter.MinSize := 80;
+
+  // ---- Output console (bottom half) ----
+  FOutputMemo := TMemo.Create(Self);
+  FOutputMemo.Parent := Self;
+  FOutputMemo.Align := TAlignLayout.Client;
+  FOutputMemo.ReadOnly := True;
+  FOutputMemo.Font.Family := 'Courier New';
+  FOutputMemo.Font.Size := 13;
+
+  // ---- File dialogs (desktop only) ----
+  {$IFDEF P9B_DESKTOP}
+  FOpenDlg := TOpenDialog.Create(Self);
+  FOpenDlg.Filter := 'Plan9Basic Scripts (*.bas)|*.bas|All Files (*.*)|*.*';
+
+  FSaveDlg := TSaveDialog.Create(Self);
+  FSaveDlg.Filter := 'Plan9Basic Scripts (*.bas)|*.bas';
+  FSaveDlg.DefaultExt := 'bas';
+  {$ENDIF}
+end;
+
+// ---------------------------------------------------------------------------
+//  Toolbar handlers
+// ---------------------------------------------------------------------------
+
+procedure TfrmAppletRunner.BtnLoadClick(Sender: TObject);
+{$IFDEF P9B_DESKTOP}
+begin
+  if FOpenDlg.Execute() then
+  begin
+    FScriptMemo.Lines.LoadFromFile(FOpenDlg.FileName);
+    FCurrentFile := FOpenDlg.FileName;
+    SetTitle();
+    SetStatus('Loaded: ' + ExtractFileName(FOpenDlg.FileName));
+  end;
+end;
+{$ELSE}
+// Mobile: ask for a filename and load from the app's Documents folder.
+var
+  DefaultName: String;
+begin
+  DefaultName := ExtractFileName(FCurrentFile);
+  TDialogService.InputQuery('Load Script', ['Filename in Documents folder:'], [DefaultName],
+    procedure(const AResult: TModalResult; const AValues: array of string)
+    var
+      FullPath: String;
+    begin
+      if (AResult = mrOk) and (Trim(AValues[0]) <> '') then
+      begin
+        FullPath := TPath.Combine(MobileDocsPath, Trim(AValues[0]));
+        if TFile.Exists(FullPath) then
+        begin
+          FScriptMemo.Lines.LoadFromFile(FullPath);
+          FCurrentFile := FullPath;
+          SetTitle();
+          SetStatus('Loaded: ' + ExtractFileName(FullPath));
+        end
+        else
+          SetStatus('File not found: ' + Trim(AValues[0]));
+      end;
+    end);
+end;
+{$ENDIF}
+
+procedure TfrmAppletRunner.BtnSaveClick(Sender: TObject);
+{$IFDEF P9B_DESKTOP}
+begin
+  if FCurrentFile <> '' then
+    FSaveDlg.FileName := FCurrentFile;
+  if FSaveDlg.Execute() then
+  begin
+    FScriptMemo.Lines.SaveToFile(FSaveDlg.FileName);
+    FCurrentFile := FSaveDlg.FileName;
+    SetTitle();
+    SetStatus('Saved: ' + ExtractFileName(FSaveDlg.FileName));
+  end;
+end;
+{$ELSE}
+// Mobile: ask for a filename and save to the app's Documents folder.
+var
+  DefaultName: String;
+begin
+  DefaultName := ExtractFileName(FCurrentFile);
+  if DefaultName = '' then DefaultName := 'script.bas';
+  TDialogService.InputQuery('Save Script', ['Filename in Documents folder:'], [DefaultName],
+    procedure(const AResult: TModalResult; const AValues: array of string)
+    var
+      FullPath: String;
+    begin
+      if (AResult = mrOk) and (Trim(AValues[0]) <> '') then
+      begin
+        FullPath := TPath.Combine(MobileDocsPath, Trim(AValues[0]));
+        FScriptMemo.Lines.SaveToFile(FullPath);
+        FCurrentFile := FullPath;
+        SetTitle();
+        SetStatus('Saved: ' + ExtractFileName(FullPath));
+      end;
+    end);
+end;
+{$ENDIF}
+
+procedure TfrmAppletRunner.BtnRunClick(Sender: TObject);
+var
+  ErrCount: Integer;
+begin
+  SetStatus('Initialising engine...');
+  Application.ProcessMessages();
+
+  // Tear down the previous run and build a fresh engine — same pattern as
+  // the original Plan9Basic project's CmdRun → InitBASICEngine sequence.
+  InitEngine();
+
+  SetStatus('Compiling...');
+  Application.ProcessMessages();
+
+  ErrCount := FEngine.Compile(FScriptMemo.Lines);
+
+  if ErrCount <> 0 then
+  begin
+    FOutputMemo.Lines.Add(Format('Compile error (line %d): %s', [FEngine.ErrorLine, FEngine.ErrorMessage]));
+    SetStatus('Compile error — see output pane.');
+    Exit();
+  end;
+
+  SetStatus('Running...');
+  Application.ProcessMessages();
+
+  try
+    // Pass the output memo lines directly: every PRINT appends a line there.
+    FEngine.ExecuteProgram(FOutputMemo.Lines);
+    SetStatus('Done.');
+  except
+    on E: Exception do
+    begin
+      FOutputMemo.Lines.Add('Runtime error: ' + E.Message);
+      SetStatus('Runtime error — see output pane.');
+    end;
+  end;
+end;
+
+procedure TfrmAppletRunner.BtnStopClick(Sender: TObject);
+begin
+  if Assigned(FEngine) then
+    FEngine.Stop();
+  SetStatus('Stopped by user.');
+end;
+
+procedure TfrmAppletRunner.BtnClearClick(Sender: TObject);
+begin
+  FOutputMemo.Lines.Clear();
+end;
+
+// ---------------------------------------------------------------------------
+//  Engine callback
+// ---------------------------------------------------------------------------
+
+procedure TfrmAppletRunner.OnPrintOutput(Sender: TObject; const Text: String; IsClear: Boolean);
+begin
+  // IsClear = True means the BASIC script issued a CLS command.
+  if IsClear then
+    FOutputMemo.Lines.Clear();
+  // Text output is already appended by ExecuteProgram via the stdout TStrings
+  // reference, so we only need to handle the clear-screen case here.
+end;
+
+// ---------------------------------------------------------------------------
+//  Helpers
+// ---------------------------------------------------------------------------
+
+procedure TfrmAppletRunner.SetStatus(const Msg: String);
+begin
+  FStatusLbl.Text := Msg;
+end;
+
+procedure TfrmAppletRunner.SetTitle();
+begin
+  if FCurrentFile <> '' then
+    Caption := 'Plan9Basic Applet Runner — ' + ExtractFileName(FCurrentFile)
+  else
+    Caption := 'Plan9Basic Applet Runner';
+end;
+
+{$IFNDEF P9B_DESKTOP}
+function TfrmAppletRunner.MobileDocsPath: String;
+begin
+  // Returns the app's writable Documents folder on iOS and Android.
+  // On Android this maps to the internal app storage Documents directory.
+  // On iOS this is the app's sandboxed Documents directory, which is also
+  // accessible via iTunes File Sharing when enabled in Info.plist.
+  Result := TPath.GetDocumentsPath;
+end;
+{$ENDIF}
+
+end.
