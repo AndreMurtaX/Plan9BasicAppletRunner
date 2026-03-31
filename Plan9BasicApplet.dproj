@@ -334,6 +334,12 @@
         <DCCReference Include="Libs\StrLib.pas"/>
         <DCCReference Include="Libs\SysLib.pas"/>
         <DCCReference Include="Libs\TimerLib.pas"/>
+        <DCCReference Include="Libs\NumLib.pas"/>
+        <DCCReference Include="Libs\DateTimeLib.pas"/>
+        <DCCReference Include="Libs\JsonLib.pas"/>
+        <DCCReference Include="Libs\ConfigLib.pas"/>
+        <DCCReference Include="Libs\Base64Lib.pas"/>
+        <DCCReference Include="Libs\ZipLib.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

@@ -45,6 +45,9 @@ OSXARM64/
 *.tvsconfig
 __history/
 
+# ----- Claude Code tool configuration (local only) -----
+.claude/
+
 # ----- Miscellaneous -----
 *.bak
 *.tmp
