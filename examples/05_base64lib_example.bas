@@ -44,11 +44,11 @@ PRINTLN "Decoded    : "; dec$
 PRINTLN "Match      : "; (data$ = dec$)
 PRINTLN ""
 
-' --- Validation ---
+' --- Validation (b64valid returns 1 = valid, 0 = invalid) ---
 PRINTLN "--- Validation ---"
-PRINTLN "Is valid (\"SGVsbG8=\")   : "; b64isvalid$("SGVsbG8=")
-PRINTLN "Is valid (\"not!base64\") : "; b64isvalid$("not!base64")
-PRINTLN "Is valid (\"\")           : "; b64isvalid$("")
+PRINTLN "b64valid(\"SGVsbG8=\")   = "; b64valid("SGVsbG8=")
+PRINTLN "b64valid(\"not!base64\") = "; b64valid("not!base64")
+PRINTLN "b64valid(\"\")           = "; b64valid("")
 PRINTLN ""
 
 ' --- Round-trip with longer text ---
@@ -56,10 +56,10 @@ PRINTLN "--- Round-Trip with Longer Text ---"
 longText$ = "Plan9Basic is a cross-platform BASIC interpreter built with Delphi/FMX."
 enc$  = b64encode$(longText$)
 dec$  = b64decode$(enc$)
-PRINTLN "Original  : "; longText$
-PRINTLN "Encoded   : "; enc$
-PRINTLN "Decoded   : "; dec$
-PRINTLN "Match     : "; (longText$ = dec$)
+PRINTLN "Original : "; longText$
+PRINTLN "Encoded  : "; enc$
+PRINTLN "Decoded  : "; dec$
+PRINTLN "Match    : "; (longText$ = dec$)
 PRINTLN ""
 
 PRINTLN "=== Base64Lib Example Complete ==="
