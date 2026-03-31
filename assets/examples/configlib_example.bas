@@ -7,7 +7,7 @@ PRINTLN "=== ConfigLib - Configuration Library ==="
 PRINTLN ""
 
 ' --- Determine a writable path and open a config file ---
-cfgFile$ = documentspath() + "applet_settings.ini"
+cfgFile$ = documentspath$() + "applet_settings.ini"
 PRINTLN "Config file: "; cfgFile$
 PRINTLN ""
 
