@@ -72,6 +72,12 @@ See [LICENSE](LICENSE) for the full text.
 | `Libs/StrLib.pas` | 47+ string manipulation functions (search, replace, split, encoding, clipboard…). |
 | `Libs/SysLib.pas` | File system, environment variables, and platform operations. |
 | `Libs/TimerLib.pas` | Timer control: interval timers with `OnTimer` callbacks. Required by the engine for breakpoint handling. |
+| `Libs/NumLib.pas` | Mathematics: trigonometry, logarithms, rounding, random numbers, abs, sign, min, max. |
+| `Libs/DateTimeLib.pas` | Date and time: current date/time, formatting, parsing, and date arithmetic. |
+| `Libs/JsonLib.pas` | JSON support: parse, build, and navigate JSON objects and arrays. GC-tracked. |
+| `Libs/ConfigLib.pas` | Persistent INI-style configuration files. Cross-platform storage locations. |
+| `Libs/Base64Lib.pas` | Base64 encoding and decoding for strings and binary files. URL-safe variant included. |
+| `Libs/ZipLib.pas` | ZIP archive operations: create, open, add files, extract, and list archive contents. |
 
 ### Host Application (this folder)
 
@@ -108,7 +114,13 @@ Plan9Basic-AppletRunner/
     ├── StdLib.pas              ← Standard library: general utilities
     ├── StrLib.pas              ← Standard library: string functions
     ├── SysLib.pas              ← Standard library: system / file I/O
-    └── TimerLib.pas            ← Timer control library (also required by exec.pas)
+    ├── TimerLib.pas            ← Timer control library (required by exec.pas)
+    ├── NumLib.pas              ← Mathematics: trig, log, random, rounding
+    ├── DateTimeLib.pas         ← Date and time operations
+    ├── JsonLib.pas             ← JSON parse, build, navigate
+    ├── ConfigLib.pas           ← INI-style persistent configuration files
+    ├── Base64Lib.pas           ← Base64 encode / decode
+    └── ZipLib.pas              ← ZIP archive create, extract, list
 ```
 
 ---

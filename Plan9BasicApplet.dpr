@@ -39,7 +39,13 @@ uses
   StdLib in 'Libs\StdLib.pas',
   StrLib in 'Libs\StrLib.pas',
   SysLib in 'Libs\SysLib.pas',
-  TimerLib in 'Libs\TimerLib.pas';
+  TimerLib in 'Libs\TimerLib.pas',
+  NumLib in 'Libs\NumLib.pas',
+  DateTimeLib in 'Libs\DateTimeLib.pas',
+  JsonLib in 'Libs\JsonLib.pas',
+  ConfigLib in 'Libs\ConfigLib.pas',
+  Base64Lib in 'Libs\Base64Lib.pas',
+  ZipLib in 'Libs\ZipLib.pas';
 
 {$R *.res}
 

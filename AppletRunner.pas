@@ -105,7 +105,8 @@ uses
   FMX.Controls.Presentation, FMX.StdCtrls, FMX.Memo, FMX.Layouts,
   FMX.ScrollBox, FMX.Memo.Types, FMX.Edit,
   basic, exec, UnitGC,
-  ArrayLib, StdLib, StrLib, SysLib, TimerLib;
+  ArrayLib, StdLib, StrLib, SysLib, TimerLib,
+  NumLib, DateTimeLib, JsonLib, ConfigLib, Base64Lib, ZipLib;
 
 type
   TfrmAppletRunner = class(TForm)
@@ -219,11 +220,17 @@ begin
   FEngine := TBasicEngine.Create();
 
   // Register the standard libraries supplied with this project.
-  RegisterArrayFuncs(FEngine.Functions); // DIM, REDIM, array access...
-  RegisterStdFuncs(FEngine.Functions); // type conversion, formatting...
-  RegisterStrFuncs(FEngine.Functions); // string manipulation (47+ funcs)
-  RegisterSysFuncs(FEngine.Functions); // file system, environment vars...
-  RegisterTimerFuncs(FEngine.Functions, FEngine, FOutputMemo.Lines); // timer callbacks
+  RegisterArrayFuncs(FEngine.Functions);                              // arrays
+  RegisterStdFuncs(FEngine.Functions);                               // type conversion, formatting
+  RegisterStrFuncs(FEngine.Functions);                               // string manipulation (47+ funcs)
+  RegisterSysFuncs(FEngine.Functions);                               // file system, environment vars
+  RegisterTimerFuncs(FEngine.Functions, FEngine, FOutputMemo.Lines); // timer callbacks (required)
+  RegisterNumFuncs(FEngine.Functions);                               // math: trig, log, random...
+  RegisterDateTimeFuncs(FEngine.Functions);                          // date/time operations
+  RegisterJsonFuncs(FEngine.Functions);                              // JSON parse & build
+  RegisterConfigFuncs(FEngine.Functions);                            // INI-style config files
+  RegisterBase64Funcs(FEngine.Functions);                            // Base64 encode/decode
+  RegisterZipFuncs(FEngine.Functions);                               // ZIP archive operations
 
   FEngine.ScriptTimeOut := 30; // seconds; 0 = unlimited
   FEngine.OnPrintOutput := OnPrintOutput;
