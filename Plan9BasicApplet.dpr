@@ -28,7 +28,7 @@
 uses
   System.StartUpCopy,
   FMX.Forms,
-  AppletRunner in 'AppletRunner.pas',
+  AppletRunner in 'AppletRunner.pas' {frmAppletRunner},
   basic in 'basic.pas',
   lexer in 'lexer.pas',
   parser in 'parser.pas',
@@ -45,7 +45,12 @@ uses
   JsonLib in 'Libs\JsonLib.pas',
   ConfigLib in 'Libs\ConfigLib.pas',
   Base64Lib in 'Libs\Base64Lib.pas',
-  ZipLib in 'Libs\ZipLib.pas';
+  ZipLib in 'Libs\ZipLib.pas',
+  HttpLib in 'Libs\HttpLib.pas',
+  PlatformInfoLib in 'Libs\PlatformInfoLib.pas',
+  AILib in 'Libs\AI\AILib.pas',
+  RAGEngine in 'Libs\AI\RAGEngine.pas',
+  RAGLib in 'Libs\AI\RAGLib.pas';
 
 {$R *.res}
 

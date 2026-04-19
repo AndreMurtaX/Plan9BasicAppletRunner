@@ -340,6 +340,11 @@
         <DCCReference Include="Libs\ConfigLib.pas"/>
         <DCCReference Include="Libs\Base64Lib.pas"/>
         <DCCReference Include="Libs\ZipLib.pas"/>
+        <DCCReference Include="Libs\HttpLib.pas"/>
+        <DCCReference Include="Libs\PlatformInfoLib.pas"/>
+        <DCCReference Include="Libs\AI\AILib.pas"/>
+        <DCCReference Include="Libs\AI\RAGEngine.pas"/>
+        <DCCReference Include="Libs\AI\RAGLib.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

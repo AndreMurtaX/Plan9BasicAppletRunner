@@ -3,11 +3,12 @@
 A minimal open-source host application for the **Plan9Basic interpreter engine** — a
 modern, cross-platform BASIC language runtime built with Delphi / FireMonkey (FMX).
 
-This project packages the core interpreter engine together with four foundational
+This project packages the core interpreter engine together with a growing set of
 standard libraries and a ready-to-compile FMX host form, making it easy to:
 
 - Embed BASIC scripting into your own Delphi/FMX applications.
 - Load, edit, and run `.bas` Plan9Basic scripts interactively.
+- Perform HTTP requests, query AI providers, and build RAG pipelines — all from BASIC.
 - Study or fork the interpreter engine for your own BASIC dialect.
 
 ---
@@ -61,7 +62,7 @@ See [LICENSE](LICENSE) for the full text.
 | `parser.pas` | Parser — validates syntax and emits intermediate postfix code. |
 | `exec.pas` | Stack machine VM — executes the compiled postfix program. |
 | `UnitUtils.pas` | Utility helpers shared across all engine components. |
-| `utils/UnitGC.pas` | Garbage collector for non-visual heap objects (arrays, dicts, JSON, etc.). |
+| `utils/UnitGC.pas` | Garbage collector for non-visual heap objects (arrays, dicts, JSON, HTTP clients, AI clients, etc.). |
 
 ### Standard Libraries
 
@@ -78,8 +79,18 @@ See [LICENSE](LICENSE) for the full text.
 | `Libs/ConfigLib.pas` | Persistent INI-style configuration files. Cross-platform storage locations. |
 | `Libs/Base64Lib.pas` | Base64 encoding and decoding for strings and binary files. URL-safe variant included. |
 | `Libs/ZipLib.pas` | ZIP archive operations: create, open, add files, extract, and list archive contents. |
+| `Libs/HttpLib.pas` | **NEW** — Full HTTP client: GET, POST, PUT, DELETE, PATCH, HEAD. Custom headers, cookies, Basic/Bearer auth, form data, query parameters, URL/HTML encoding, timeout control, and status-code helpers. 82 functions. Cross-platform synchronous API. |
+| `Libs/PlatformInfoLib.pas` | **NEW** — OS and platform detection: name, version (major, minor, build), service pack, architecture, and version-check helpers. |
 
-### Host Application (this folder)
+### AI Libraries *(new — `Libs/AI/` subfolder)*
+
+| File | Description |
+|------|-------------|
+| `Libs/AI/AILib.pas` | **NEW** — Provider-agnostic AI transport layer. Supports Anthropic (Claude), OpenAI (GPT), Google (Gemini), Mistral, Groq, DeepSeek, xAI/Grok, Perplexity, Together AI, Fireworks AI, OpenRouter, local Ollama, and LM Studio — all through a single unified interface. Includes synchronous completion, multi-turn conversation management, streaming (SSE), and tool-use support. 49 functions. |
+| `Libs/AI/RAGLib.pas` | **NEW** — Plan9Basic bindings for the RAG engine. Lets scripts create a knowledge-base index, retrieve relevant documents by query, look up documents by tag or function name, and feed the results directly into an AI prompt. 13 functions. |
+| `Libs/AI/RAGEngine.pas` | **NEW** — Pure-Delphi Retrieval-Augmented Generation engine. No external dependencies, no vector databases, no embeddings API, no Python required. Uses multi-signal keyword scoring (tag, title, function-name, category, and dependency signals) with token-budget management to select the most relevant documents for a given query. Consumed internally by `RAGLib.pas`. |
+
+### Host Application
 
 | File | Description |
 |------|-------------|
@@ -109,19 +120,71 @@ Plan9Basic-AppletRunner/
 ├── utils/
 │   └── UnitGC.pas              ← Engine: garbage collector
 │
-└── Libs/
-    ├── ArrayLib.pas            ← Standard library: dynamic arrays
-    ├── StdLib.pas              ← Standard library: general utilities
-    ├── StrLib.pas              ← Standard library: string functions
-    ├── SysLib.pas              ← Standard library: system / file I/O
-    ├── TimerLib.pas            ← Timer control library (required by exec.pas)
-    ├── NumLib.pas              ← Mathematics: trig, log, random, rounding
-    ├── DateTimeLib.pas         ← Date and time operations
-    ├── JsonLib.pas             ← JSON parse, build, navigate
-    ├── ConfigLib.pas           ← INI-style persistent configuration files
-    ├── Base64Lib.pas           ← Base64 encode / decode
-    └── ZipLib.pas              ← ZIP archive create, extract, list
+├── Libs/
+│   ├── ArrayLib.pas            ← Standard library: dynamic arrays
+│   ├── StdLib.pas              ← Standard library: general utilities
+│   ├── StrLib.pas              ← Standard library: string functions
+│   ├── SysLib.pas              ← Standard library: system / file I/O
+│   ├── TimerLib.pas            ← Timer control library (required by exec.pas)
+│   ├── NumLib.pas              ← Mathematics: trig, log, random, rounding
+│   ├── DateTimeLib.pas         ← Date and time operations
+│   ├── JsonLib.pas             ← JSON parse, build, navigate
+│   ├── ConfigLib.pas           ← INI-style persistent configuration files
+│   ├── Base64Lib.pas           ← Base64 encode / decode
+│   ├── ZipLib.pas              ← ZIP archive create, extract, list
+│   ├── HttpLib.pas             ← NEW: HTTP client (82 functions)
+│   ├── PlatformInfoLib.pas     ← NEW: OS / platform detection
+│   └── AI/
+│       ├── AILib.pas           ← NEW: AI provider transport layer (49 functions)
+│       ├── RAGLib.pas          ← NEW: RAG engine Plan9Basic bindings (13 functions)
+│       └── RAGEngine.pas       ← NEW: Pure-Delphi RAG engine (no external deps)
+│
+└── assets/
+    ├── images/                 ← Screenshots used in this README
+    └── examples/               ← Ready-to-run example applets (see below)
 ```
+
+---
+
+## Example Applets
+
+The `assets/examples/` folder contains ready-to-run `.bas` scripts that demonstrate
+both the language and the standard libraries. Load any of them in the Applet Runner
+and press **Run ▶** to try them out.
+
+### General Language & Library Tests
+
+| File | What it demonstrates |
+|------|----------------------|
+| `stdlib_test.bas` | Type conversion, formatting, and pointer helpers (StdLib) |
+| `strlib_test.bas` | String manipulation functions (StrLib) |
+| `numlib_test.bas` | Mathematics and rounding functions (NumLib) |
+| `datetimelib_test.bas` | Date and time operations (DateTimeLib) |
+| `syslib_test.bas` | File system and environment operations (SysLib) |
+| `ArrayLib_Tests.bas` | Multi-dimensional dynamic arrays (ArrayLib) |
+| `json_test.bas` | Building, parsing, and navigating JSON (JsonLib) |
+| `Base64_quick_test.bas` | Quick Base64 encode/decode round-trip (Base64Lib) |
+| `Base64Lib_tests.bas` | Full Base64 test suite including URL-safe variant |
+| `test_ziplib.bas` | ZIP archive creation, listing, and extraction (ZipLib) |
+| `configlib_example.bas` | INI-style persistent configuration files (ConfigLib) |
+| `string_formatter.bas` | Formatted output and string building patterns |
+| `do_loop_test.bas` | Loop constructs and control-flow patterns |
+
+### HTTP Client Examples *(HttpLib — new)*
+
+| File | What it demonstrates |
+|------|----------------------|
+| `HttpLib_SimpleTest.bas` | The simplest possible GET request in one line |
+| `HttpLib_QuickTest.bas` | Ten-test validation covering GET, POST, PUT, DELETE, auth, params, and URL encoding |
+| `HttpLib_MethodsTest.bas` | Every HTTP method (GET, POST, PUT, DELETE, PATCH, HEAD) side-by-side |
+| `HttpLib_Tests.bas` | Full 22-test suite: client lifecycle, custom headers, cookies, form data (URL-encoded and multipart), Basic/Bearer auth, response headers, status codes, timeouts, User-Agent, and error handling — tested against [httpbin.org](https://httpbin.org) |
+| `HttpLib_DebugTest.bas` | Verbose request/response inspection for debugging connectivity issues |
+
+### AI Examples *(AILib — new)*
+
+| File | What it demonstrates |
+|------|----------------------|
+| `hello_ai.bas` | The absolute minimum to call an AI and get a response — one client, one question, one answer. Works out-of-the-box with local [Ollama](https://ollama.com) (no API key needed), or switch `PROVIDER$` to `"anthropic"`, `"openai"`, `"groq"`, `"deepseek"`, or any other supported cloud provider |
 
 ---
 
@@ -140,7 +203,7 @@ Plan9Basic-AppletRunner/
 ```bat
 dcc64 Plan9BasicApplet.dpr ^
   -NSSystem;FMX;Data ^
-  -I.. -I..\utils -I..\Libs
+  -I.. -I..\utils -I..\Libs -I..\Libs\AI
 ```
 
 ### Platform notes
@@ -187,6 +250,59 @@ press **Run ▶**.
 
 ---
 
+## Quick Start: HTTP Requests
+
+```basic
+' --- Simple one-liner GET ---
+LET response$ = http_simpleget$("https://httpbin.org/get")
+PRINTLN response$
+
+' --- Client-based workflow ---
+LET client# = http_client#("https://api.example.com")
+LET client# = http_header#(client#, "Authorization", "Bearer " + myToken$)
+LET client# = http_param#(client#, "page", "1")
+LET response$ = http_get$(client#, "/items")
+
+IF http_ok(client#) <> 0 THEN
+  PRINTLN "Status: " + STR$(http_status(client#))
+  PRINTLN response$
+ELSE
+  PRINTLN "Error: " + http_errormsg$()
+END IF
+LET x = http_free(client#)
+```
+
+---
+
+## Quick Start: AI Integration
+
+```basic
+' Works with local Ollama (free, no API key):
+'   1. Install Ollama from https://ollama.com
+'   2. Run: ollama pull llama3.2
+'   3. Run this script as-is
+
+LET PROVIDER$ = "ollama"   ' or "anthropic", "openai", "groq", "deepseek" …
+LET APIKEY$   = ""         ' leave empty for Ollama; paste your key for cloud providers
+LET MODEL$    = "llama3.2"
+
+LET ai# = ai_client#(PROVIDER$, APIKEY$)
+LET ai# = ai_model#(ai#, MODEL$)
+LET response$ = ai_complete$(ai#, "Explain recursion in one sentence.")
+
+IF ai_ok(ai#) = 1 THEN
+  PRINTLN response$
+ELSE
+  PRINTLN "Error: " + ai_errormsg$()
+END IF
+LET x = ai_free(ai#)
+```
+
+See `assets/examples/hello_ai.bas` for the full annotated version and instructions
+for switching between providers.
+
+---
+
 ## Embedding the Engine in Your Own Application
 
 `TBasicEngine` (defined in `basic.pas`) is designed to be embedded. Here is the
@@ -195,18 +311,24 @@ minimal integration pattern:
 ```pascal
 uses
   basic, exec, UnitGC,
-  ArrayLib, StdLib, StrLib, SysLib, TimerLib;
+  ArrayLib, StdLib, StrLib, SysLib, TimerLib,
+  HttpLib, PlatformInfoLib,
+  AILib, RAGLib;
 
 // --- Initialisation (e.g. in FormCreate) ---
 GC := TGarbageCollector.Create();
 
 Engine := TBasicEngine.Create();
-RegisterArrayFuncs(Engine.Functions); // array functions
-RegisterStdFuncs(Engine.Functions); // standard utilities
-RegisterStrFuncs(Engine.Functions); // string functions
-RegisterSysFuncs(Engine.Functions); // system / file I/O
-RegisterTimerFuncs(Engine.Functions, Engine, OutputMemo.Lines); // timer callbacks — required
-Engine.ScriptTimeOut := 30; // execution time limit (seconds)
+RegisterArrayFuncs(Engine.Functions);
+RegisterStdFuncs(Engine.Functions);
+RegisterStrFuncs(Engine.Functions);
+RegisterSysFuncs(Engine.Functions);
+RegisterTimerFuncs(Engine.Functions, Engine, OutputMemo.Lines); // required
+RegisterHttpFuncs(Engine.Functions, Engine, OutputMemo.Lines);
+RegisterPlatformInfoFuncs(Engine.Functions);
+RegisterAIFuncs(Engine.Functions, Engine, OutputMemo.Lines);
+RegisterRAGFuncs(Engine.Functions);
+Engine.ScriptTimeOut := 30;
 
 // --- Compile and run ---
 if Engine.Compile(MyMemo.Lines) = 0 then

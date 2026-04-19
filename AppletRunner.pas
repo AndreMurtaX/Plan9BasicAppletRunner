@@ -106,7 +106,8 @@ uses
   FMX.ScrollBox, FMX.Memo.Types, FMX.Edit,
   basic, exec, UnitGC,
   ArrayLib, StdLib, StrLib, SysLib, TimerLib,
-  NumLib, DateTimeLib, JsonLib, ConfigLib, Base64Lib, ZipLib;
+  NumLib, DateTimeLib, JsonLib, ConfigLib, Base64Lib, ZipLib,
+  PlatformInfoLib, HttpLib, AILib, RAGLib;
 
 type
   TfrmAppletRunner = class(TForm)
@@ -220,7 +221,7 @@ begin
   FEngine := TBasicEngine.Create();
 
   // Register the standard libraries supplied with this project.
-  RegisterArrayFuncs(FEngine.Functions);                              // arrays
+  RegisterArrayFuncs(FEngine.Functions);                             // arrays
   RegisterStdFuncs(FEngine.Functions);                               // type conversion, formatting
   RegisterStrFuncs(FEngine.Functions);                               // string manipulation (47+ funcs)
   RegisterSysFuncs(FEngine.Functions);                               // file system, environment vars
@@ -231,6 +232,10 @@ begin
   RegisterConfigFuncs(FEngine.Functions);                            // INI-style config files
   RegisterBase64Funcs(FEngine.Functions);                            // Base64 encode/decode
   RegisterZipFuncs(FEngine.Functions);                               // ZIP archive operations
+  RegisterHttpFuncs(FEngine.Functions, FEngine, FOutputMemo.Lines);  // HTTP client protocol
+  RegisterPlatformInfoFuncs(FEngine.Functions);                      // Runtime platform info
+  RegisterAIFuncs(FEngine.Functions, FEngine, FOutputMemo.Lines);    // AI Transport Layer
+  RegisterRAGFuncs(FEngine.Functions);                               // RAG Engine
 
   FEngine.ScriptTimeOut := 30; // seconds; 0 = unlimited
   FEngine.OnPrintOutput := OnPrintOutput;
