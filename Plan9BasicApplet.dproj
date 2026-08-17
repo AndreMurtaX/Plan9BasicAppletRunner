@@ -323,28 +323,29 @@
         <DCCReference Include="AppletRunner.pas">
             <Form>frmAppletRunner</Form>
         </DCCReference>
-        <DCCReference Include="basic.pas"/>
-        <DCCReference Include="lexer.pas"/>
-        <DCCReference Include="parser.pas"/>
-        <DCCReference Include="exec.pas"/>
-        <DCCReference Include="UnitUtils.pas"/>
-        <DCCReference Include="utils\UnitGC.pas"/>
-        <DCCReference Include="Libs\ArrayLib.pas"/>
-        <DCCReference Include="Libs\StdLib.pas"/>
-        <DCCReference Include="Libs\StrLib.pas"/>
-        <DCCReference Include="Libs\SysLib.pas"/>
-        <DCCReference Include="Libs\TimerLib.pas"/>
-        <DCCReference Include="Libs\NumLib.pas"/>
-        <DCCReference Include="Libs\DateTimeLib.pas"/>
-        <DCCReference Include="Libs\JsonLib.pas"/>
-        <DCCReference Include="Libs\ConfigLib.pas"/>
-        <DCCReference Include="Libs\Base64Lib.pas"/>
-        <DCCReference Include="Libs\ZipLib.pas"/>
-        <DCCReference Include="Libs\HttpLib.pas"/>
-        <DCCReference Include="Libs\PlatformInfoLib.pas"/>
-        <DCCReference Include="Libs\AI\AILib.pas"/>
-        <DCCReference Include="Libs\AI\RAGEngine.pas"/>
-        <DCCReference Include="Libs\AI\RAGLib.pas"/>
+        <DCCReference Include="engine\basic.pas"/>
+        <DCCReference Include="engine\lexer.pas"/>
+        <DCCReference Include="engine\parser.pas"/>
+        <DCCReference Include="engine\exec.pas"/>
+        <DCCReference Include="engine\UnitUtils.pas"/>
+        <DCCReference Include="engine\utils\UnitGC.pas"/>
+        <DCCReference Include="engine\utils\HandleRegistry.pas"/>
+        <DCCReference Include="engine\Libs\ArrayLib.pas"/>
+        <DCCReference Include="engine\Libs\StdLib.pas"/>
+        <DCCReference Include="engine\Libs\StrLib.pas"/>
+        <DCCReference Include="engine\Libs\SysLib.pas"/>
+        <DCCReference Include="engine\Libs\GUI\TimerLib.pas"/>
+        <DCCReference Include="engine\Libs\NumLib.pas"/>
+        <DCCReference Include="engine\Libs\DateTimeLib.pas"/>
+        <DCCReference Include="engine\Libs\JsonLib.pas"/>
+        <DCCReference Include="engine\Libs\ConfigLib.pas"/>
+        <DCCReference Include="engine\Libs\Base64Lib.pas"/>
+        <DCCReference Include="engine\Libs\ZipLib.pas"/>
+        <DCCReference Include="engine\Libs\HttpLib.pas"/>
+        <DCCReference Include="engine\Libs\PlatformInfoLib.pas"/>
+        <DCCReference Include="engine\Libs\AI\AILib.pas"/>
+        <DCCReference Include="engine\Libs\AI\RAGEngine.pas"/>
+        <DCCReference Include="engine\Libs\AI\RAGLib.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
