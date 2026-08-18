@@ -420,7 +420,9 @@ thread called `ExecuteProgram` until `ConfirmProc` answers. That works only
 where a modal answer can reach a calling thread that is already blocked. On
 Android and iOS it cannot — the answer travels back through the platform's own
 looper, which is what called into the application in the first place — so the
-runner installs `ConfirmProc` only where the engine reports it is safe:
+runner installs `ConfirmProc` only where the engine reports it is safe. The
+engine checks the same thing before parking, so the guarantee does not rest on
+the host remembering:
 
 ```pascal
 if CanPauseForHostDialog then   // declared in exec.pas
