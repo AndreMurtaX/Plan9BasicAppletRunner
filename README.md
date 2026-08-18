@@ -13,6 +13,35 @@ standard libraries and a ready-to-compile FMX host form, making it easy to:
 
 ---
 
+## Building
+
+The interpreter core and the shared standard library live in a separate
+repository, [Plan9BasicEngine](https://github.com/AndreMurtaX/Plan9BasicEngine),
+and are pulled in as a git submodule under `engine/`. **Clone recursively**, or
+the `engine/` folder arrives empty and the build fails on the first unit:
+
+```bash
+git clone --recurse-submodules https://github.com/AndreMurtaX/Plan9BasicAppletRunner.git
+```
+
+Already cloned without it? Fix an existing checkout with:
+
+```bash
+git submodule update --init --recursive
+```
+
+Then open `Plan9BasicApplet.dproj` in RAD Studio and build, or build from the
+command line:
+
+```bash
+dcc64 Plan9BasicApplet.dpr
+```
+
+No search paths or environment setup are needed: every unit is referenced with
+its path from the `.dpr`, including the ones inside `engine/`.
+
+---
+
 ## Screenshots
 
 | Windows 64-bit | Linux Ubuntu 22.04 (64-bit) | Android (64-bit) |

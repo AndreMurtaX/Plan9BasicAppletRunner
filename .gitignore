@@ -36,6 +36,11 @@ OSXARM64/
 # ----- Auto-generated resource / symbol files -----
 *.res
 *.rsm
+# ...except the project resource, which RAD Studio regenerates only when the
+# project is opened in the IDE. Without it in the repository a fresh clone
+# cannot be built from the command line at all.
+!Plan9Basic.res
+!Plan9BasicApplet.res
 
 # ----- IDE and user-specific files -----
 *.dsk
