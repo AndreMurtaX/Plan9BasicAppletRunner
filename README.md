@@ -32,6 +32,14 @@ Already cloned without it? Fix an existing checkout with:
 git submodule update --init --recursive
 ```
 
+A submodule pins a commit, so this runner keeps building the engine it was
+pinned to until that pointer is moved. When the engine gains a fix, pull it here
+and commit the pointer, or the runner silently stays on the older version:
+
+```bash
+cd engine && git pull && cd .. && git add engine && git commit
+```
+
 Then open `Plan9BasicApplet.dproj` in RAD Studio and build, or build from the
 command line:
 
