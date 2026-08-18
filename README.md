@@ -429,7 +429,8 @@ if CanPauseForHostDialog then   // declared in exec.pas
   FEngine.ConfirmProc := HostConfirm;
 ```
 
-Everywhere else the engine reports the frame it would have shown and carries on:
+The frame goes to the output either way, so the trace keeps the values whether
+or not a dialog followed:
 
 ```
 [BREAKPOINT] checkpoint reached (Line 25)
