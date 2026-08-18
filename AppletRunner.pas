@@ -287,7 +287,12 @@ begin
   FEngine.ScriptTimeOut := 30; // seconds; 0 = unlimited
   FEngine.OnPrintOutput := OnPrintOutput;
   FEngine.InputProc := HostInput;
-  FEngine.ConfirmProc := HostConfirm;
+  //BREAKPOINT parks the VM until this answers, so it is only safe where the
+  //platform can deliver a modal answer with the calling thread blocked. Left
+  //unset, the engine reports the breakpoint frame to the trace and carries on,
+  //instead of waiting for a reply that can never arrive.
+  if CanPauseForHostDialog then
+    FEngine.ConfirmProc := HostConfirm;
   FEngine.YieldProc := HostYield;
 end;
 
@@ -421,16 +426,15 @@ begin
   FScriptMemo.Lines.Add('timer_free#(t#)');
   FScriptMemo.Lines.Add('PRINTLN ""');
   FScriptMemo.Lines.Add('');
-  FScriptMemo.Lines.Add('PRINTLN "=== 4/5  BREAKPOINT - DESKTOP ONLY ==="');
-  FScriptMemo.Lines.Add('PRINTLN "  Known defect, older than the host callbacks:"');
-  FScriptMemo.Lines.Add('PRINTLN "  BREAKPOINT parks the VM in a wait loop on the UI"');
-  FScriptMemo.Lines.Add('PRINTLN "  thread, so on Android the dialog result can never"');
-  FScriptMemo.Lines.Add('PRINTLN "  arrive and the app is killed as not responding."');
-  FScriptMemo.Lines.Add('PRINTLN "  Uncomment the three lines below to test on desktop."');
-  FScriptMemo.Lines.Add('REM TRACE 1');
-  FScriptMemo.Lines.Add('REM BREAKPOINT "host dialog check"');
-  FScriptMemo.Lines.Add('REM TRACE 0');
-  FScriptMemo.Lines.Add('PRINTLN "  SKIPPED - see docs/ANALYSIS-2026-08.md"');
+  FScriptMemo.Lines.Add('PRINTLN "=== 4/5  BREAKPOINT degrades where it cannot pause ==="');
+  FScriptMemo.Lines.Add('PRINTLN "  desktop: a dialog appears - answer YES to go on"');
+  FScriptMemo.Lines.Add('PRINTLN "  mobile:  no dialog; the frame is printed below"');
+  FScriptMemo.Lines.Add('bpcount = 3');
+  FScriptMemo.Lines.Add('bpname$ = "frame dump"');
+  FScriptMemo.Lines.Add('TRACE 1');
+  FScriptMemo.Lines.Add('BREAKPOINT "checkpoint reached", bpcount, bpname$');
+  FScriptMemo.Lines.Add('TRACE 0');
+  FScriptMemo.Lines.Add('PRINTLN "  PASS - execution continued past the breakpoint"');
   FScriptMemo.Lines.Add('PRINTLN ""');
   FScriptMemo.Lines.Add('');
   FScriptMemo.Lines.Add('PRINTLN "=== 5/5  INPUT asks the host (async) ==="');

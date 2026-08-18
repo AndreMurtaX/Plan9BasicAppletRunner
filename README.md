@@ -249,6 +249,12 @@ and press **Run ▶** to try them out.
 The `P9B_DESKTOP` conditional in `AppletRunner.pas` is set automatically at
 compile time — no manual changes are needed when switching target platforms.
 
+`BREAKPOINT` differs by platform too. On Windows, macOS and Linux it opens a
+dialog and pauses the script. On iOS and Android it writes the frame — line,
+message and watched variables — to the output and execution continues, because
+a VM paused there would block the very mechanism that delivers the answer. See
+[Host callbacks](#host-callbacks).
+
 ---
 
 ## Quick Start: Writing a Plan9Basic Script
@@ -388,7 +394,7 @@ everything it needs to ask for:
 | Callback | Called when | Leave it nil and… |
 |----------|-------------|-------------------|
 | `InputProc` | the script runs `INPUT` | the default value in the script is kept |
-| `ConfirmProc` | the script hits a `BREAKPOINT` | execution simply continues |
+| `ConfirmProc` | the script hits a `BREAKPOINT` | the frame is written to the trace and execution continues |
 | `YieldProc` | the VM is idle, and periodically during `PRINT` | nothing is pumped — correct for a console or a service |
 
 Both requests hand you a continuation rather than expecting a return value, so
@@ -408,6 +414,26 @@ A console host reads a line from stdin and calls `ADone` immediately. This
 runner opens the same asynchronous FireMonkey dialogs the engine used to open
 itself, and also suspends its timers around a breakpoint — the host owns them,
 so the host pauses them.
+
+`BREAKPOINT` is the one construct that parks the VM: it waits on whichever
+thread called `ExecuteProgram` until `ConfirmProc` answers. That works only
+where a modal answer can reach a calling thread that is already blocked. On
+Android and iOS it cannot — the answer travels back through the platform's own
+looper, which is what called into the application in the first place — so the
+runner installs `ConfirmProc` only where the engine reports it is safe:
+
+```pascal
+if CanPauseForHostDialog then   // declared in exec.pas
+  FEngine.ConfirmProc := HostConfirm;
+```
+
+Everywhere else the engine reports the frame it would have shown and carries on:
+
+```
+[BREAKPOINT] checkpoint reached (Line 25)
+             n = 7
+             s$ = "frame"
+```
 
 ### Key `TBasicEngine` Members
 
