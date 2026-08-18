@@ -3,10 +3,12 @@
 A minimal open-source host application for the **Plan9Basic interpreter engine** — a
 modern, cross-platform BASIC language runtime built with Delphi / FireMonkey (FMX).
 
-This project packages the core interpreter engine together with a growing set of
-standard libraries and a ready-to-compile FMX host form, making it easy to:
+This project is a ready-to-compile FMX host form around the interpreter, which
+it pulls in from
+[Plan9BasicEngine](https://github.com/AndreMurtaX/Plan9BasicEngine) as a
+submodule, together with a growing set of standard libraries. It makes it easy to:
 
-- Embed BASIC scripting into your own Delphi/FMX applications.
+- Embed BASIC scripting into your own Delphi application — FMX or VCL.
 - Load, edit, and run `.bas` Plan9Basic scripts interactively.
 - Perform HTTP requests, query AI providers, and build RAG pipelines — all from BASIC.
 - Study or fork the interpreter engine for your own BASIC dialect.
@@ -74,9 +76,10 @@ See [LICENSE](LICENSE) for the full text.
 
 | Tool | Notes |
 |------|-------|
-| **RAD Studio** or **Delphi** | FireMonkey (FMX) required. Version 10.3 Rio or later recommended. |
+| **RAD Studio** or **Delphi** | Version 10.3 Rio or later recommended. FireMonkey is required by *this runner*, because it has a window — the engine itself does not need it. |
 | **Target platform** | Windows, macOS, Linux, iOS, Android — all FireMonkey targets are supported. |
-| **External dependencies** | None beyond the standard RAD Studio / FMX RTL. |
+| **External dependencies** | None beyond the standard RAD Studio RTL. |
+| **Git** | The interpreter arrives as a submodule, so the clone has to be recursive. See *Building*. |
 
 ---
 
@@ -84,40 +87,50 @@ See [LICENSE](LICENSE) for the full text.
 
 ### Interpreter Engine
 
+Everything below lives in the `engine/` submodule
+([Plan9BasicEngine](https://github.com/AndreMurtaX/Plan9BasicEngine)), shared
+with the Plan9Basic IDE so there is only ever one copy of it.
+
 | File | Description |
 |------|-------------|
-| `basic.pas` | `TBasicEngine` — top-level interface between a host application and the language runtime. |
-| `lexer.pas` | Tokenizer — converts BASIC source text into a stream of lexical tokens. |
-| `parser.pas` | Parser — validates syntax and emits intermediate postfix code. |
-| `exec.pas` | Stack machine VM — executes the compiled postfix program. |
-| `UnitUtils.pas` | Utility helpers shared across all engine components. |
-| `utils/UnitGC.pas` | Garbage collector for non-visual heap objects (arrays, dicts, JSON, HTTP clients, AI clients, etc.). |
+| `engine/basic.pas` | `TBasicEngine` — top-level interface between a host application and the language runtime. |
+| `engine/lexer.pas` | Tokenizer — converts BASIC source text into a stream of lexical tokens. |
+| `engine/parser.pas` | Parser — validates syntax and emits intermediate postfix code. |
+| `engine/exec.pas` | Stack machine VM — executes the compiled postfix program. |
+| `engine/UnitUtils.pas` | Utility helpers shared across all engine components. |
+| `engine/utils/UnitGC.pas` | Garbage collector for non-visual heap objects (arrays, dicts, JSON, HTTP clients, AI clients, etc.). |
+| `engine/utils/HandleRegistry.pas` | Validates the pointers a BASIC program hands back, without dereferencing them. |
+
+The engine itself does **not** require FireMonkey. It asks the host for the
+three things that need a person — see *Host callbacks* below — so it can equally
+be driven from a console, a service or a VCL application. FireMonkey is required
+by this runner because the runner has a window.
 
 ### Standard Libraries
 
 | File | Description |
 |------|-------------|
-| `Libs/ArrayLib.pas` | Dynamic arrays with 1-based indexing, up to 10 dimensions. Numeric, string, and pointer variants. |
-| `Libs/StdLib.pas` | General-purpose utilities: type conversion, formatting, pointer helpers. |
-| `Libs/StrLib.pas` | 47+ string manipulation functions (search, replace, split, encoding, clipboard…). |
-| `Libs/SysLib.pas` | File system, environment variables, and platform operations. |
-| `Libs/TimerLib.pas` | Timer control: interval timers with `OnTimer` callbacks. Required by the engine for breakpoint handling. |
-| `Libs/NumLib.pas` | Mathematics: trigonometry, logarithms, rounding, random numbers, abs, sign, min, max. |
-| `Libs/DateTimeLib.pas` | Date and time: current date/time, formatting, parsing, and date arithmetic. |
-| `Libs/JsonLib.pas` | JSON support: parse, build, and navigate JSON objects and arrays. GC-tracked. |
-| `Libs/ConfigLib.pas` | Persistent INI-style configuration files. Cross-platform storage locations. |
-| `Libs/Base64Lib.pas` | Base64 encoding and decoding for strings and binary files. URL-safe variant included. |
-| `Libs/ZipLib.pas` | ZIP archive operations: create, open, add files, extract, and list archive contents. |
-| `Libs/HttpLib.pas` | **NEW** — Full HTTP client: GET, POST, PUT, DELETE, PATCH, HEAD. Custom headers, cookies, Basic/Bearer auth, form data, query parameters, URL/HTML encoding, timeout control, and status-code helpers. 82 functions. Cross-platform synchronous API. |
-| `Libs/PlatformInfoLib.pas` | **NEW** — OS and platform detection: name, version (major, minor, build), service pack, architecture, and version-check helpers. |
+| `engine/Libs/ArrayLib.pas` | Dynamic arrays with 1-based indexing, up to 10 dimensions. Numeric, string, and pointer variants. |
+| `engine/Libs/StdLib.pas` | General-purpose utilities: type conversion, formatting, pointer helpers. |
+| `engine/Libs/StrLib.pas` | 47+ string manipulation functions (search, replace, split, encoding, clipboard…). |
+| `engine/Libs/SysLib.pas` | File system, environment variables, and platform operations. |
+| `engine/Libs/GUI/TimerLib.pas` | Timer control: interval timers with `OnTimer` callbacks. The only FireMonkey-bound library the engine ships with. |
+| `engine/Libs/NumLib.pas` | Mathematics: trigonometry, logarithms, rounding, random numbers, abs, sign, min, max. |
+| `engine/Libs/DateTimeLib.pas` | Date and time: current date/time, formatting, parsing, and date arithmetic. |
+| `engine/Libs/JsonLib.pas` | JSON support: parse, build, and navigate JSON objects and arrays. GC-tracked. |
+| `engine/Libs/ConfigLib.pas` | Persistent INI-style configuration files. Cross-platform storage locations. |
+| `engine/Libs/Base64Lib.pas` | Base64 encoding and decoding for strings and binary files. URL-safe variant included. |
+| `engine/Libs/ZipLib.pas` | ZIP archive operations: create, open, add files, extract, and list archive contents. |
+| `engine/Libs/HttpLib.pas` | Full HTTP client: GET, POST, PUT, DELETE, PATCH, HEAD. Custom headers, cookies, Basic/Bearer auth, form data, query parameters, URL/HTML encoding, timeout control, and status-code helpers. 82 functions. Cross-platform synchronous API. |
+| `engine/Libs/PlatformInfoLib.pas` | OS and platform detection: name, version (major, minor, build), service pack, architecture, and version-check helpers. |
 
-### AI Libraries *(new — `Libs/AI/` subfolder)*
+### AI Libraries
 
 | File | Description |
 |------|-------------|
-| `Libs/AI/AILib.pas` | **NEW** — Provider-agnostic AI transport layer. Supports Anthropic (Claude), OpenAI (GPT), Google (Gemini), Mistral, Groq, DeepSeek, xAI/Grok, Perplexity, Together AI, Fireworks AI, OpenRouter, local Ollama, and LM Studio — all through a single unified interface. Includes synchronous completion, multi-turn conversation management, streaming (SSE), and tool-use support. 49 functions. |
-| `Libs/AI/RAGLib.pas` | **NEW** — Plan9Basic bindings for the RAG engine. Lets scripts create a knowledge-base index, retrieve relevant documents by query, look up documents by tag or function name, and feed the results directly into an AI prompt. 13 functions. |
-| `Libs/AI/RAGEngine.pas` | **NEW** — Pure-Delphi Retrieval-Augmented Generation engine. No external dependencies, no vector databases, no embeddings API, no Python required. Uses multi-signal keyword scoring (tag, title, function-name, category, and dependency signals) with token-budget management to select the most relevant documents for a given query. Consumed internally by `RAGLib.pas`. |
+| `engine/Libs/AI/AILib.pas` | Provider-agnostic AI transport layer. Supports Anthropic (Claude), OpenAI (GPT), Google (Gemini), Mistral, Groq, DeepSeek, xAI/Grok, Perplexity, Together AI, Fireworks AI, OpenRouter, local Ollama, and LM Studio — all through a single unified interface. Includes synchronous completion, multi-turn conversation management, streaming (SSE), and tool-use support. 49 functions. |
+| `engine/Libs/AI/RAGLib.pas` | Plan9Basic bindings for the RAG engine. Lets scripts create a knowledge-base index, retrieve relevant documents by query, look up documents by tag or function name, and feed the results directly into an AI prompt. 13 functions. |
+| `engine/Libs/AI/RAGEngine.pas` | Pure-Delphi Retrieval-Augmented Generation engine. No external dependencies, no vector databases, no embeddings API, no Python required. Uses multi-signal keyword scoring (tag, title, function-name, category, and dependency signals) with token-budget management to select the most relevant documents for a given query. Consumed internally by `RAGLib.pas`. |
 
 ### Host Application
 
@@ -130,43 +143,51 @@ See [LICENSE](LICENSE) for the full text.
 
 ## Project Structure
 
-The repository is fully self-contained — every file needed to compile is included.
+This repository holds the host application. The interpreter and the standard
+library arrive through the `engine/` submodule, which is why the clone has to be
+recursive.
 
 ```
-Plan9Basic-AppletRunner/
+Plan9BasicAppletRunner/
 ├── LICENSE
 ├── README.md
 ├── Plan9BasicApplet.dproj      ← Open this in RAD Studio to build
 ├── Plan9BasicApplet.dpr        ← RAD Studio main project file
+├── Plan9BasicApplet.res        ← Project resource (versioned: a clean clone
+│                                 could not be built from the command line
+│                                 without it)
 ├── AppletRunner.pas            ← Host application form
 │
-├── basic.pas                   ← Engine: main interface (TBasicEngine)
-├── lexer.pas                   ← Engine: tokenizer
-├── parser.pas                  ← Engine: parser / code generator
-├── exec.pas                    ← Engine: stack machine VM
-├── UnitUtils.pas               ← Engine: shared utilities
-│
-├── utils/
-│   └── UnitGC.pas              ← Engine: garbage collector
-│
-├── Libs/
-│   ├── ArrayLib.pas            ← Standard library: dynamic arrays
-│   ├── StdLib.pas              ← Standard library: general utilities
-│   ├── StrLib.pas              ← Standard library: string functions
-│   ├── SysLib.pas              ← Standard library: system / file I/O
-│   ├── TimerLib.pas            ← Timer control library (required by exec.pas)
-│   ├── NumLib.pas              ← Mathematics: trig, log, random, rounding
-│   ├── DateTimeLib.pas         ← Date and time operations
-│   ├── JsonLib.pas             ← JSON parse, build, navigate
-│   ├── ConfigLib.pas           ← INI-style persistent configuration files
-│   ├── Base64Lib.pas           ← Base64 encode / decode
-│   ├── ZipLib.pas              ← ZIP archive create, extract, list
-│   ├── HttpLib.pas             ← NEW: HTTP client (82 functions)
-│   ├── PlatformInfoLib.pas     ← NEW: OS / platform detection
-│   └── AI/
-│       ├── AILib.pas           ← NEW: AI provider transport layer (49 functions)
-│       ├── RAGLib.pas          ← NEW: RAG engine Plan9Basic bindings (13 functions)
-│       └── RAGEngine.pas       ← NEW: Pure-Delphi RAG engine (no external deps)
+├── engine/                     ← submodule: github.com/AndreMurtaX/Plan9BasicEngine
+│   ├── basic.pas               ← Engine: main interface (TBasicEngine)
+│   ├── lexer.pas               ← Engine: tokenizer
+│   ├── parser.pas              ← Engine: parser / code generator
+│   ├── exec.pas                ← Engine: stack machine VM
+│   ├── UnitUtils.pas           ← Engine: shared utilities
+│   │
+│   ├── utils/
+│   │   ├── UnitGC.pas          ← Engine: garbage collector
+│   │   └── HandleRegistry.pas  ← Engine: handle validation
+│   │
+│   └── Libs/
+│       ├── ArrayLib.pas        ← Standard library: dynamic arrays
+│       ├── StdLib.pas          ← Standard library: general utilities
+│       ├── StrLib.pas          ← Standard library: string functions
+│       ├── SysLib.pas          ← Standard library: system / file I/O
+│       ├── NumLib.pas          ← Mathematics: trig, log, random, rounding
+│       ├── DateTimeLib.pas     ← Date and time operations
+│       ├── JsonLib.pas         ← JSON parse, build, navigate
+│       ├── ConfigLib.pas       ← INI-style persistent configuration files
+│       ├── Base64Lib.pas       ← Base64 encode / decode
+│       ├── ZipLib.pas          ← ZIP archive create, extract, list
+│       ├── HttpLib.pas         ← HTTP client (82 functions)
+│       ├── PlatformInfoLib.pas ← OS / platform detection
+│       ├── GUI/
+│       │   └── TimerLib.pas    ← Timer control library
+│       └── AI/
+│           ├── AILib.pas       ← AI provider transport layer (49 functions)
+│           ├── RAGLib.pas      ← RAG engine Plan9Basic bindings (13 functions)
+│           └── RAGEngine.pas   ← Pure-Delphi RAG engine (no external deps)
 │
 └── assets/
     ├── images/                 ← Screenshots used in this README
@@ -199,7 +220,7 @@ and press **Run ▶** to try them out.
 | `string_formatter.bas` | Formatted output and string building patterns |
 | `do_loop_test.bas` | Loop constructs and control-flow patterns |
 
-### HTTP Client Examples *(HttpLib — new)*
+### HTTP Client Examples *(HttpLib)*
 
 | File | What it demonstrates |
 |------|----------------------|
@@ -209,7 +230,7 @@ and press **Run ▶** to try them out.
 | `HttpLib_Tests.bas` | Full 22-test suite: client lifecycle, custom headers, cookies, form data (URL-encoded and multipart), Basic/Bearer auth, response headers, status codes, timeouts, User-Agent, and error handling — tested against [httpbin.org](https://httpbin.org) |
 | `HttpLib_DebugTest.bas` | Verbose request/response inspection for debugging connectivity issues |
 
-### AI Examples *(AILib — new)*
+### AI Examples *(AILib)*
 
 | File | What it demonstrates |
 |------|----------------------|
@@ -217,25 +238,7 @@ and press **Run ▶** to try them out.
 
 ---
 
-## Building
-
-### From the RAD Studio IDE
-
-1. Open **RAD Studio**.
-2. Choose **File → Open** and select `Plan9BasicApplet.dpr`.
-3. RAD Studio will generate the companion `.dproj` file automatically.
-4. Select your target platform (Win32, Win64, macOS, Linux, iOS, Android).
-5. Press **F9** to build and run.
-
-### From the Command Line (Win64)
-
-```bat
-dcc64 Plan9BasicApplet.dpr ^
-  -NSSystem;FMX;Data ^
-  -I.. -I..\utils -I..\Libs -I..\Libs\AI
-```
-
-### Platform notes
+## Platform notes
 
 | Platform | Load / Save behaviour |
 |----------|-----------------------|
@@ -334,12 +337,12 @@ for switching between providers.
 
 ## Embedding the Engine in Your Own Application
 
-`TBasicEngine` (defined in `basic.pas`) is designed to be embedded. Here is the
+`TBasicEngine` (defined in `engine/basic.pas`) is designed to be embedded. Here is the
 minimal integration pattern:
 
 ```pascal
 uses
-  basic, exec, UnitGC,
+  basic, exec, UnitGC, HandleRegistry,
   ArrayLib, StdLib, StrLib, SysLib, TimerLib,
   HttpLib, PlatformInfoLib,
   AILib, RAGLib;
@@ -352,12 +355,17 @@ RegisterArrayFuncs(Engine.Functions);
 RegisterStdFuncs(Engine.Functions);
 RegisterStrFuncs(Engine.Functions);
 RegisterSysFuncs(Engine.Functions);
-RegisterTimerFuncs(Engine.Functions, Engine, OutputMemo.Lines); // required
+RegisterTimerFuncs(Engine.Functions, Engine, OutputMemo.Lines);
 RegisterHttpFuncs(Engine.Functions, Engine, OutputMemo.Lines);
 RegisterPlatformInfoFuncs(Engine.Functions);
 RegisterAIFuncs(Engine.Functions, Engine, OutputMemo.Lines);
 RegisterRAGFuncs(Engine.Functions);
 Engine.ScriptTimeOut := 30;
+
+// Optional: see "Host callbacks" below
+Engine.InputProc   := MyInputHandler;
+Engine.ConfirmProc := MyConfirmHandler;
+Engine.YieldProc   := MyYieldHandler;
 
 // --- Compile and run ---
 if Engine.Compile(MyMemo.Lines) = 0 then
@@ -369,6 +377,36 @@ else
 FreeAndNil(Engine);
 FreeAndNil(GC);
 ```
+
+### Host callbacks
+
+The engine does not know how your application talks to a person, which is what
+keeps it free of any dependency on FireMonkey. Three optional callbacks cover
+everything it needs to ask for:
+
+| Callback | Called when | Leave it nil and… |
+|----------|-------------|-------------------|
+| `InputProc` | the script runs `INPUT` | the default value in the script is kept |
+| `ConfirmProc` | the script hits a `BREAKPOINT` | execution simply continues |
+| `YieldProc` | the VM is idle, and periodically during `PRINT` | nothing is pumped — correct for a console or a service |
+
+Both requests hand you a continuation rather than expecting a return value, so
+an asynchronous dialog can answer later without blocking the VM:
+
+```pascal
+procedure TMyForm.MyInputHandler(const ACaption: String;
+  const ALabels: array of String; const ADefaults: array of String;
+  const ADone: TInputDoneProc);
+begin
+  // ...ask however you like, then:
+  ADone(UserConfirmed, TheValues);
+end;
+```
+
+A console host reads a line from stdin and calls `ADone` immediately. This
+runner opens the same asynchronous FireMonkey dialogs the engine used to open
+itself, and also suspends its timers around a breakpoint — the host owns them,
+so the host pauses them.
 
 ### Key `TBasicEngine` Members
 
@@ -382,6 +420,9 @@ FreeAndNil(GC);
 | `Functions` | Property | `TFunctionsDictionary` — pass to `RegisterXxxFuncs()` calls. |
 | `ScriptTimeOut` | Property | Maximum execution time in seconds (default: 30). |
 | `OnPrintOutput` | Event | Fires for each PRINT; `IsClear = True` means CLS was called. |
+| `InputProc` | Property | How the host asks for a value (`INPUT`). Optional. |
+| `ConfirmProc` | Property | How the host asks a yes/no question (`BREAKPOINT`). Optional. |
+| `YieldProc` | Property | Where a host with a message loop pumps it. Optional. |
 
 ---
 
@@ -402,7 +443,8 @@ The full Plan9Basic language — documentation, interactive examples, and the
 complete online BASIC environment — lives at **[plan9basic.com](https://plan9basic.com)**.
 
 **This repository is the heart of that project.** The interpreter engine published
-here (`basic.pas`, `lexer.pas`, `parser.pas`, `exec.pas`) is the exact same engine
+here (`engine/basic.pas`, `engine/lexer.pas`, `engine/parser.pas`,
+`engine/exec.pas`) is the exact same engine
 that powers the Plan9Basic website. Every language feature documented there —
 every statement, operator, built-in function, and library call — can be reproduced
 locally by building this project. If it runs on the website, it runs here.
