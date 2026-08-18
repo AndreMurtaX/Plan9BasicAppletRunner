@@ -102,6 +102,7 @@ uses
   System.IOUtils,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
   FMX.DialogService,
+  FMX.DialogService.Async,
   FMX.Controls.Presentation, FMX.StdCtrls, FMX.Memo, FMX.Layouts,
   FMX.ScrollBox, FMX.Memo.Types, FMX.Edit,
   basic, exec, UnitGC,
@@ -149,6 +150,12 @@ type
     procedure OnPrintOutput(Sender: TObject; const Text: String; IsClear: Boolean);
 
     procedure BuildUI();
+    //Host side of the engine's interactions with a person. The engine itself
+    //no longer knows FireMonkey; the dialogs live here.
+    procedure HostInput(const ACaption: String; const ALabels: array of String;
+                        const ADefaults: array of String; const ADone: TInputDoneProc);
+    procedure HostConfirm(const AMessage: String; const ADone: TConfirmDoneProc);
+    procedure HostYield();
     procedure InitEngine();
     procedure SetStatus(const Msg: String);
     procedure SetTitle();
@@ -209,6 +216,46 @@ end;
 //  callbacks can interfere with the next execution.
 // ---------------------------------------------------------------------------
 
+procedure TfrmAppletRunner.HostInput(const ACaption: String;
+  const ALabels: array of String; const ADefaults: array of String;
+  const ADone: TInputDoneProc);
+var
+  Values: array of String;
+  I: Integer;
+begin
+  SetLength(Values, Length(ADefaults));
+  for I := 0 to High(ADefaults) do
+    Values[I] := ADefaults[I];
+
+  TDialogServiceAsync.InputQuery(ACaption, ALabels, Values,
+    procedure(const AResult: TModalResult; const AValues: array of string)
+    begin
+      ADone(AResult = mrOk, AValues);
+    end);
+end;
+
+procedure TfrmAppletRunner.HostConfirm(const AMessage: String;
+  const ADone: TConfirmDoneProc);
+begin
+  //Timers belong to the host, so pausing them around a breakpoint is the
+  //host's job. The engine only asks the question.
+  TimerLib.PauseAllTimers();
+
+  TDialogServiceAsync.MessageDialog(AMessage, TMsgDlgType.mtConfirmation,
+    [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo], TMsgDlgBtn.mbYes, 0,
+    procedure(const AResult: TModalResult)
+    begin
+      if AResult <> mrNo then
+        TimerLib.ResumeAllTimers();
+      ADone(AResult <> mrNo);
+    end);
+end;
+
+procedure TfrmAppletRunner.HostYield();
+begin
+  Application.ProcessMessages();
+end;
+
 procedure TfrmAppletRunner.InitEngine();
 begin
   // --- Tear down previous run (safe to call even on the very first run) ---
@@ -239,6 +286,9 @@ begin
 
   FEngine.ScriptTimeOut := 30; // seconds; 0 = unlimited
   FEngine.OnPrintOutput := OnPrintOutput;
+  FEngine.InputProc := HostInput;
+  FEngine.ConfirmProc := HostConfirm;
+  FEngine.YieldProc := HostYield;
 end;
 
 // ---------------------------------------------------------------------------
