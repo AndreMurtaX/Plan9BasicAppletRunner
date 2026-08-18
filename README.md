@@ -219,6 +219,7 @@ and press **Run ▶** to try them out.
 | `configlib_example.bas` | INI-style persistent configuration files (ConfigLib) |
 | `string_formatter.bas` | Formatted output and string building patterns |
 | `do_loop_test.bas` | Loop constructs and control-flow patterns |
+| `host_callbacks_test.bas` | The three host callbacks (`InputProc`, `ConfirmProc`, `YieldProc`) and handle validation. Worth running on every platform you ship — see *Host callbacks* |
 
 ### HTTP Client Examples *(HttpLib)*
 
