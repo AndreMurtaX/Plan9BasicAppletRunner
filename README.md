@@ -1,3 +1,22 @@
+> ### This repository is no longer developed
+>
+> Everything here moved into
+> **[Plan9Basic](https://github.com/AndreMurtaX/Plan9Basic)** on 2026-08-19,
+> which now holds the whole project in one tree — interpreter, standard
+> library, the IDE, the applet runner, the test suites and the documentation.
+>
+> Nothing was deleted. The history below is intact and any clone or submodule
+> pointing here keeps resolving, so old checkouts do not break. But no fix
+> lands here any more, and the copy in `Plan9Basic` is the one that is
+> maintained.
+>
+> **Why.** The split cost more than it paid. A change to the interpreter was
+> not finished when it compiled: it had to be committed and pushed here, then
+> have its pointer bumped in each consumer separately. Forget one and that
+> consumer quietly keeps building the previous commit — no error, no failing
+> build, just an older interpreter. With one repository the fix reaches
+> everything that uses it, or nothing.
+
 # Plan9Basic Applet Runner
 
 A minimal open-source host application for the **Plan9Basic interpreter engine** — a
