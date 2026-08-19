@@ -10,6 +10,11 @@
 > lands here any more, and the copy in `Plan9Basic` is the one that is
 > maintained.
 >
+> **That link does not open yet.** `Plan9Basic` is still a private repository,
+> so the move is recorded here before the destination is reachable. This
+> paragraph goes away when it opens; the code here is the last public copy
+> until then, and it is complete and it builds.
+>
 > **Why.** The split cost more than it paid. A change to the interpreter was
 > not finished when it compiled: it had to be committed and pushed here, then
 > have its pointer bumped in each consumer separately. Forget one and that
